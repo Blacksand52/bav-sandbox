@@ -1,0 +1,703 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BAV — Live Teller Demo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=IBM+Plex+Mono:wght@400;500&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#0c1016;
+    --panel:#151b24;
+    --panel-2:#1b2330;
+    --line:#2a3444;
+    --brass:#c9a468;
+    --brass-dim:rgba(201,164,104,.12);
+    --teal:#4fa8a0;
+    --teal-dim:rgba(79,168,160,.12);
+    --amber:#d98f4f;
+    --amber-dim:rgba(217,143,79,.12);
+    --red:#d9695f;
+    --text:#f2ede4;
+    --sub:#8f97a3;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; min-height:100vh; background:var(--ink); color:var(--text);
+    font-family:'Inter',sans-serif; display:flex; flex-direction:column; align-items:center;
+    padding:28px 16px 60px;
+  }
+  h1{
+    font-family:'Fraunces',serif; font-weight:500; font-size:22px; letter-spacing:.01em;
+    margin:0 0 4px;
+  }
+  .sub{color:var(--sub); font-size:13px; margin-bottom:24px; text-align:center; max-width:440px;}
+  .mode-toggle{display:flex; gap:8px; margin-bottom:28px; background:var(--panel); padding:5px; border-radius:10px; border:1px solid var(--line);}
+  .mode-btn{
+    background:transparent; border:none; color:var(--sub); font-family:'Inter',sans-serif;
+    font-size:13px; font-weight:600; padding:9px 18px; border-radius:7px; cursor:pointer;
+    letter-spacing:.02em;
+  }
+  .mode-btn.active{background:var(--panel-2); color:var(--text);}
+  .view{width:100%; max-width:420px; display:none;}
+  .view.active{display:block;}
+
+  /* ---- Card view ---- */
+  .wallet-tabs{display:flex; gap:8px; margin-bottom:18px;}
+  .wtab{flex:1; background:var(--panel); border:1px solid var(--line); color:var(--sub); font-family:'Inter',sans-serif;
+    font-size:12px; font-weight:600; padding:9px; border-radius:8px; cursor:pointer; text-transform:uppercase; letter-spacing:.04em;}
+  .wtab.ess.active{border-color:var(--teal); color:var(--teal); background:var(--teal-dim);}
+  .wtab.disc.active{border-color:var(--amber); color:var(--amber); background:var(--amber-dim);}
+
+  .card{
+    border-radius:18px; padding:24px; height:220px; position:relative; overflow:hidden;
+    display:flex; flex-direction:column; justify-content:space-between;
+    border:1px solid var(--line); transition:border-color .3s, transform .2s, box-shadow .3s;
+    box-shadow:0 20px 40px rgba(0,0,0,.35);
+  }
+  .card.ess{
+    background:linear-gradient(150deg, #16233b 0%, #0d1420 100%);
+    border-color:rgba(79,168,160,.4);
+  }
+  .card.disc{
+    background:linear-gradient(150deg, #23201d 0%, #12100e 100%);
+    border-color:rgba(217,143,79,.4);
+  }
+  .card.charging{transform:scale(0.97);}
+  .card.ess.charging{box-shadow:0 0 0 3px rgba(79,168,160,.5), 0 20px 40px rgba(0,0,0,.35);}
+  .card.disc.charging{box-shadow:0 0 0 3px rgba(217,143,79,.5), 0 20px 40px rgba(0,0,0,.35);}
+  .card-skyline{position:absolute; right:0; bottom:0; opacity:.16; pointer-events:none;}
+  .card-top{display:flex; justify-content:space-between; align-items:flex-start; position:relative; z-index:1;}
+  .brand{font-family:'Fraunces',serif; font-size:19px; letter-spacing:.02em; display:flex; align-items:center; gap:7px;}
+  .brand .mark{color:var(--teal); font-size:15px;}
+  .card.disc .brand .mark{color:var(--amber);}
+  .region-tag{font-size:9px; color:var(--sub); letter-spacing:.08em; text-align:right;}
+  .contactless{width:20px; height:20px; margin-top:4px; align-self:flex-end;}
+  .card-mid{position:relative; z-index:1; display:flex; justify-content:space-between; align-items:flex-end;}
+  .chip{width:36px; height:27px; border-radius:5px; background:linear-gradient(135deg,#d8bd85,#a9853f);}
+  .wallet-label{font-size:10px; text-transform:uppercase; letter-spacing:.06em; font-weight:600;}
+  .card.ess .wallet-label{color:var(--teal);}
+  .card.disc .wallet-label{color:var(--amber);}
+  .card-number{position:relative; z-index:1; font-family:'IBM Plex Mono',monospace; font-size:16.5px; letter-spacing:.06em; margin-top:10px;}
+  .card-bottom{position:relative; z-index:1; display:flex; justify-content:space-between; align-items:flex-end; margin-top:10px;}
+  .valid-thru{font-size:8.5px; color:var(--sub); text-transform:uppercase; letter-spacing:.05em; line-height:1.5;}
+  .valid-thru b{display:block; font-size:11px; color:var(--text); font-family:'IBM Plex Mono',monospace; letter-spacing:.03em;}
+  .card-brand-foot{text-align:right;}
+  .card-brand-foot .vc{font-family:'Fraunces',serif; font-style:italic; font-size:15px;}
+  .card-brand-foot .vs{font-size:8px; color:var(--sub); letter-spacing:.05em; text-transform:uppercase;}
+  .bal-value{font-family:'Fraunces',serif; font-size:26px;}
+
+  .token-box{margin-top:22px; background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:16px; text-align:center;}
+  .token-id{font-family:'IBM Plex Mono',monospace; font-size:13px; color:var(--text); letter-spacing:.03em;}
+  .token-note{font-size:11px; color:var(--sub); margin-top:6px;}
+  .pulse-dot{display:inline-block; width:6px; height:6px; border-radius:50%; background:var(--teal); margin-right:6px; animation:pulse 1.6s infinite;}
+  @keyframes pulse{0%,100%{opacity:1;}50%{opacity:.25;}}
+  .last-tx{margin-top:14px; font-size:12px; color:var(--sub); text-align:center; min-height:16px;}
+  .last-tx b{color:var(--text);}
+  .receipt-lines{margin-top:8px; font-family:'IBM Plex Mono',monospace; font-size:11px; color:var(--sub); text-align:left; line-height:1.6;}
+
+  /* ---- Tap-to-pay overlay ---- */
+  .tap-overlay{
+    background:var(--panel); border:2px solid var(--teal); border-radius:14px; padding:22px;
+    text-align:center; margin-bottom:18px; display:none;
+  }
+  .tap-overlay.show{display:block;}
+  .tap-overlay .amt{font-family:'Fraunces',serif; font-size:30px; margin:6px 0 2px;}
+  .tap-overlay .desc{font-size:12px; color:var(--sub); margin-bottom:16px;}
+  .tap-ring{
+    width:80px; height:80px; margin:0 auto 16px; border-radius:50%;
+    border:2px solid var(--teal); display:flex; align-items:center; justify-content:center;
+    animation:ring-pulse 1.6s infinite; cursor:pointer;
+  }
+  @keyframes ring-pulse{0%{box-shadow:0 0 0 0 rgba(79,168,160,.45);}70%{box-shadow:0 0 0 16px rgba(79,168,160,0);}100%{box-shadow:0 0 0 0 rgba(79,168,160,0);}}
+  .tap-btn{background:var(--teal); color:#0c1016; border:none; padding:11px 22px; border-radius:9px; font-weight:700; font-size:13px; cursor:pointer;}
+  .tap-processing{display:none; font-size:12px; color:var(--sub); margin-top:10px;}
+  .tap-processing.show{display:block;}
+
+  /* ---- Till view ---- */
+  .till-h{font-family:'Fraunces',serif; font-size:18px; margin:0 0 4px;}
+  .till-sub{font-size:12px; color:var(--sub); margin:0 0 16px;}
+  .cat-label{font-size:11px; text-transform:uppercase; letter-spacing:.08em; color:var(--sub); margin:18px 0 8px;}
+  .item-grid{display:grid; grid-template-columns:1fr 1fr; gap:8px;}
+  .item-card{background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:11px 12px; cursor:pointer; text-align:left;}
+  .item-card:active{transform:scale(0.98);}
+  .item-card .nm{font-size:12.5px; font-weight:600; line-height:1.25;}
+  .item-card .pr{font-family:'IBM Plex Mono',monospace; font-size:12px; margin-top:6px;}
+  .item-card.ess .pr{color:var(--teal);}
+  .item-card.disc .pr{color:var(--amber);}
+  .item-card .badge{font-size:9px; text-transform:uppercase; letter-spacing:.05em; color:var(--sub); margin-top:3px; display:block;}
+
+  .basket-box{background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:14px 16px; margin-top:22px;}
+  .basket-h{display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;}
+  .basket-h .t{font-size:13px; font-weight:600;}
+  .basket-h .clear{font-size:11px; color:var(--sub); background:none; border:none; cursor:pointer; text-decoration:underline;}
+  .basket-empty{font-size:12px; color:var(--sub); padding:8px 0;}
+  .basket-line{display:flex; justify-content:space-between; font-size:12.5px; padding:6px 0; border-bottom:1px solid var(--line);}
+  .basket-line:last-child{border-bottom:none;}
+  .basket-line .rm{color:var(--red); cursor:pointer; font-size:11px; margin-left:8px;}
+  .basket-total{display:flex; justify-content:space-between; font-size:14px; font-weight:600; margin-top:10px; padding-top:10px; border-top:1px solid var(--line);}
+
+  .pay-btn{width:100%; margin-top:14px; background:var(--teal); color:#0c1016; border:none; padding:13px; border-radius:9px;
+    font-size:14px; font-weight:700; cursor:pointer; letter-spacing:.02em;}
+  .pay-btn:disabled{opacity:.35; cursor:not-allowed;}
+
+  .waiting-box{display:none; text-align:center; padding:10px 0 4px;}
+  .waiting-box.show{display:block;}
+  .waiting-box .wtxt{font-size:13px; font-weight:600; margin-top:10px;}
+  .waiting-box .wamt{font-family:'Fraunces',serif; font-size:22px; margin-top:2px;}
+  .spinner{width:26px; height:26px; margin:0 auto; border:2px solid var(--line); border-top-color:var(--teal); border-radius:50%; animation:spin 0.8s linear infinite;}
+  @keyframes spin{to{transform:rotate(360deg);}}
+  .cancel-btn{margin-top:14px; background:transparent; border:1px solid var(--line); color:var(--sub); padding:8px 16px; border-radius:8px; font-size:12px; cursor:pointer;}
+
+  .ledger-summary{background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:16px; text-align:center; margin:20px 0 16px;}
+  .ledger-summary .lbl{font-size:11px; color:var(--sub); text-transform:uppercase; letter-spacing:.06em;}
+  .ledger-summary .total{font-family:'Fraunces',serif; font-size:26px; margin:4px 0;}
+  .cap-line{font-size:12px; color:var(--sub); margin-top:6px;}
+  .cap-line span{color:var(--teal); font-weight:600;}
+
+  .terminal{background:#080a0e; border:1px solid var(--line); border-radius:10px; padding:14px 16px; height:170px; overflow-y:auto;
+    font-family:'IBM Plex Mono',monospace; font-size:11.5px; line-height:1.6; color:#7fdc9a;}
+  .terminal .err{color:var(--red);}
+  .terminal .sys{color:var(--sub);}
+  .terminal .ok{color:#7fdc9a;}
+
+  .reset-btn{width:100%; margin-top:16px; background:transparent; border:1px solid rgba(217,105,95,.4); color:var(--red);
+    padding:9px; border-radius:8px; font-size:12px; font-weight:600; cursor:pointer;}
+  .reset-btn:hover{background:rgba(217,105,95,.08);}
+</style>
+</head>
+<body>
+
+<h1>BAV — Live Teller Demo</h1>
+<p class="sub">Scan items on the till, request payment, then tap the card on your phone to approve it — synced over the internet in real time.</p>
+<p class="sub" id="conn-status" style="font-weight:600; margin-top:-14px;"></p>
+
+<div id="setup-banner" style="display:none; max-width:420px; background:rgba(217,105,95,.08); border:1px solid rgba(217,105,95,.4); border-radius:10px; padding:14px 16px; margin-bottom:20px; font-size:12.5px; color:var(--text); line-height:1.6;">
+  <b style="color:var(--red);">Not set up yet.</b> Open this file in a text editor, find <code>FIREBASE_URL</code> near the top of the script, and replace the placeholder with your own Firebase Realtime Database URL.
+</div>
+
+<div class="mode-toggle">
+  <button class="mode-btn active" id="btn-mode-card" onclick="setMode('card')">Wallet Card</button>
+  <button class="mode-btn" id="btn-mode-till" onclick="setMode('till')">Till</button>
+</div>
+
+<!-- ================= CARD VIEW ================= -->
+<div class="view active" id="view-card">
+
+  <div class="tap-overlay" id="tap-overlay">
+    <div class="desc">Payment requested by the till</div>
+    <div class="amt" id="tap-amount">£0.00</div>
+    <div class="tap-ring" id="tap-ring" onclick="tapToPay()">
+      <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--teal)">
+        <path d="M6 12a6 6 0 0 1 12 0" stroke-opacity="0.5"/>
+        <path d="M8.5 12a3.5 3.5 0 0 1 7 0" stroke-opacity="0.8"/>
+        <circle cx="12" cy="12" r="1.4" fill="currentColor" stroke="none"/>
+      </svg>
+    </div>
+    <button class="tap-btn" onclick="tapToPay()">Tap to Pay</button>
+    <div class="tap-processing" id="tap-processing">Processing…</div>
+  </div>
+
+  <div class="wallet-tabs">
+    <button class="wtab ess active" id="wtab-ess" onclick="setWallet('essential')">Essential</button>
+    <button class="wtab disc" id="wtab-disc" onclick="setWallet('discretionary')">Discretionary</button>
+  </div>
+
+  <div class="card ess" id="card-el">
+    <svg class="card-skyline" id="card-skyline-ess" width="150" height="110" viewBox="0 0 150 110" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <rect x="18" y="40" width="10" height="60" fill="#ffffff"/>
+      <rect x="122" y="40" width="10" height="60" fill="#ffffff"/>
+      <path d="M18 40 L28 24 L18 24 Z" fill="#ffffff"/>
+      <path d="M132 40 L122 24 L132 24 Z" fill="#ffffff"/>
+      <path d="M28 46 Q75 20 122 46" stroke="#ffffff" stroke-width="2" fill="none"/>
+      <path d="M28 60 Q75 90 122 60" stroke="#ffffff" stroke-width="2" fill="none"/>
+      <rect x="0" y="98" width="150" height="4" fill="#ffffff"/>
+    </svg>
+    <div class="card-top">
+      <div class="brand"><span class="mark">▲</span>BAV</div>
+      <div style="display:flex; flex-direction:column; align-items:flex-end; gap:6px;">
+        <div class="region-tag">GBP · UK</div>
+        <svg class="contactless" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2" style="opacity:.85">
+          <path d="M6 12a6 6 0 0 1 12 0" stroke-opacity=".5"/>
+          <path d="M8.5 12a3.5 3.5 0 0 1 7 0" stroke-opacity=".8"/>
+          <circle cx="12" cy="12" r="1.4" fill="#ffffff" stroke="none"/>
+        </svg>
+      </div>
+    </div>
+    <div class="card-mid">
+      <div>
+        <div class="chip"></div>
+        <div class="wallet-label" id="card-tag" style="margin-top:8px;">Essential Wallet</div>
+      </div>
+      <div style="text-align:right;">
+        <div class="bal-label" style="font-size:9px; color:var(--sub); text-transform:uppercase; letter-spacing:.06em;">Balance</div>
+        <div class="bal-value" id="card-balance">£0.00</div>
+      </div>
+    </div>
+    <div class="card-number" id="card-number">5411 5499 5912 4900</div>
+    <div class="card-bottom">
+      <div class="valid-thru">Valid thru<b>04/29</b></div>
+      <div class="card-brand-foot"><div class="vc">VISA</div><div class="vs">Business</div></div>
+    </div>
+  </div>
+
+  <div class="token-box">
+    <div class="token-id"><span class="pulse-dot"></span><span id="token-id-text">ID-STUDENT-ALPHA-7712</span></div>
+    <div class="token-note">Synced with the till automatically.</div>
+  </div>
+
+  <div class="last-tx" id="card-last-tx"></div>
+</div>
+
+<!-- ================= TILL VIEW ================= -->
+<div class="view" id="view-till" style="max-width:480px;">
+  <div class="till-h">Retail counter</div>
+  <div class="till-sub">Tap an item to scan it into the basket, then request payment.</div>
+
+  <div class="cat-label">Groceries · Essential</div>
+  <div class="item-grid" id="grid-groceries"></div>
+
+  <div class="cat-label">Books &amp; Transport · Essential</div>
+  <div class="item-grid" id="grid-essentials-other"></div>
+
+  <div class="cat-label">Clothing, Tech &amp; Leisure · Discretionary</div>
+  <div class="item-grid" id="grid-discretionary"></div>
+
+  <div class="basket-box">
+    <div id="basket-normal">
+      <div class="basket-h">
+        <div class="t">Basket</div>
+        <button class="clear" onclick="clearBasket()">Clear</button>
+      </div>
+      <div id="basket-lines"><div class="basket-empty">No items scanned yet.</div></div>
+      <div class="basket-total"><span>Total</span><span id="basket-total-val">£0.00</span></div>
+      <button class="pay-btn" id="pay-btn" onclick="requestPayment()" disabled>Request Payment</button>
+    </div>
+    <div class="waiting-box" id="waiting-box">
+      <div class="spinner"></div>
+      <div class="wtxt">Waiting for card tap…</div>
+      <div class="wamt" id="waiting-amt">£0.00</div>
+      <button class="cancel-btn" onclick="cancelPayment()">Cancel</button>
+    </div>
+  </div>
+
+  <div class="ledger-summary">
+    <div class="lbl">Total remaining</div>
+    <div class="total" id="till-total">£0.00</div>
+    <div class="cap-line">Discretionary spent: <span id="till-disc-spend">£0.00 / £60.00</span></div>
+  </div>
+
+  <div class="terminal" id="terminal"><span class="sys">System online. Scan items to begin.</span></div>
+
+  <button class="reset-btn" onclick="resetLedger()">Reset demo ledger</button>
+</div>
+
+<script>
+const DEFAULT_STATE = {
+  identity_ref: "ID-STUDENT-ALPHA-7712",
+  essential_balance_pence: 14000,
+  discretionary_balance_pence: 6000,
+  discretionary_cap_pence: 6000,
+  cumulative_discretionary_spend_pence: 0,
+  last_tx: null,
+  pending_payment: null
+};
+
+// UK-store-style catalog. wallet: 'essential' | 'discretionary'
+const CATALOG = {
+  groceries: [
+    { name: 'Semi-Skimmed Milk 2pt', price: 155, wallet: 'essential' },
+    { name: 'Wholemeal Bread 800g', price: 120, wallet: 'essential' },
+    { name: 'Free Range Eggs (6)', price: 210, wallet: 'essential' },
+    { name: 'Bananas, loose (per kg)', price: 89, wallet: 'essential' },
+    { name: 'Chicken Breast Fillets 640g', price: 450, wallet: 'essential' },
+    { name: 'Baked Beans, 4-pack', price: 180, wallet: 'essential' },
+    { name: 'Penne Pasta 500g', price: 95, wallet: 'essential' },
+    { name: 'Basmati Rice 1kg', price: 210, wallet: 'essential' }
+  ],
+  essentials_other: [
+    { name: 'Course Textbook', price: 4500, wallet: 'essential' },
+    { name: 'A4 Notebook, pack of 3', price: 350, wallet: 'essential' },
+    { name: 'Oyster/Bus Day Pass', price: 520, wallet: 'essential' },
+    { name: 'Printer Paper, 500 sheets', price: 499, wallet: 'essential' }
+  ],
+  discretionary: [
+    { name: 'Graphic T-Shirt', price: 1200, wallet: 'discretionary' },
+    { name: 'Trainers', price: 4500, wallet: 'discretionary' },
+    { name: 'Bluetooth Headphones', price: 2999, wallet: 'discretionary' },
+    { name: 'Takeaway Coffee', price: 320, wallet: 'discretionary' },
+    { name: 'Cinema Ticket', price: 1150, wallet: 'discretionary' },
+    { name: 'Takeaway Pizza', price: 899, wallet: 'discretionary' },
+    { name: 'Phone Case', price: 799, wallet: 'discretionary' },
+    { name: 'Magazine', price: 450, wallet: 'discretionary' }
+  ]
+};
+
+const CARD_NUMBERS = {
+  essential: '5411 5499 5912 4900',
+  discretionary: '6000 8877 2211 3344'
+};
+
+let mode = 'card';
+let walletView = 'essential';
+let basket = []; // { name, price, wallet }
+let audioCtx = null;
+let tillAwaiting = false;
+let processingPayment = false;
+let tapOverlayShown = false;
+
+function setMode(m){
+  mode = m;
+  document.getElementById('view-card').classList.toggle('active', m === 'card');
+  document.getElementById('view-till').classList.toggle('active', m === 'till');
+  document.getElementById('btn-mode-card').classList.toggle('active', m === 'card');
+  document.getElementById('btn-mode-till').classList.toggle('active', m === 'till');
+}
+
+function setWallet(w){
+  walletView = w;
+  document.getElementById('wtab-ess').classList.toggle('active', w === 'essential');
+  document.getElementById('wtab-disc').classList.toggle('active', w === 'discretionary');
+  render();
+}
+
+// ---------- sound ----------
+function ctx(){
+  if(!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  return audioCtx;
+}
+function scanBeep(){
+  const ac = ctx();
+  const osc = ac.createOscillator();
+  const gain = ac.createGain();
+  osc.connect(gain); gain.connect(ac.destination);
+  osc.type = 'square';
+  osc.frequency.setValueAtTime(1500, ac.currentTime);
+  gain.gain.setValueAtTime(0.05, ac.currentTime);
+  gain.gain.exponentialRampToValueAtTime(0.001, ac.currentTime + 0.08);
+  osc.start(); osc.stop(ac.currentTime + 0.08);
+}
+function tapChirp(){
+  const ac = ctx();
+  const osc = ac.createOscillator();
+  const gain = ac.createGain();
+  osc.connect(gain); gain.connect(ac.destination);
+  osc.type = 'sine';
+  osc.frequency.setValueAtTime(1100, ac.currentTime);
+  gain.gain.setValueAtTime(0.06, ac.currentTime);
+  gain.gain.exponentialRampToValueAtTime(0.001, ac.currentTime + 0.12);
+  osc.start(); osc.stop(ac.currentTime + 0.12);
+}
+function paySuccessTone(){
+  const ac = ctx();
+  [880, 1320].forEach((freq, i) => {
+    const osc = ac.createOscillator();
+    const gain = ac.createGain();
+    osc.connect(gain); gain.connect(ac.destination);
+    osc.frequency.setValueAtTime(freq, ac.currentTime + i*0.09);
+    gain.gain.setValueAtTime(0.07, ac.currentTime + i*0.09);
+    gain.gain.exponentialRampToValueAtTime(0.001, ac.currentTime + i*0.09 + 0.15);
+    osc.start(ac.currentTime + i*0.09); osc.stop(ac.currentTime + i*0.09 + 0.15);
+  });
+}
+function payDeclineTone(){
+  const ac = ctx();
+  const osc = ac.createOscillator();
+  const gain = ac.createGain();
+  osc.connect(gain); gain.connect(ac.destination);
+  osc.type = 'sawtooth';
+  osc.frequency.setValueAtTime(160, ac.currentTime);
+  gain.gain.setValueAtTime(0.09, ac.currentTime);
+  gain.gain.exponentialRampToValueAtTime(0.001, ac.currentTime + 0.35);
+  osc.start(); osc.stop(ac.currentTime + 0.35);
+}
+
+// ---------- storage (Firebase Realtime Database) ----------
+// PASTE YOUR FIREBASE DATABASE URL BELOW — see setup steps. No trailing slash.
+const FIREBASE_URL = "https://bav-demo-default-rtdb.firebaseio.com";
+
+const FIREBASE_CONFIGURED = !FIREBASE_URL.includes("REPLACE-ME");
+const DB_PATH = `${FIREBASE_URL}/bav_ledger.json`;
+let connectionOk = null;
+
+function setConnStatus(ok){
+  connectionOk = ok;
+  const el = document.getElementById('conn-status');
+  if(!el) return;
+  el.textContent = ok ? 'Connected' : 'Connection error';
+  el.style.color = ok ? 'var(--teal)' : 'var(--red)';
+}
+
+async function getState(){
+  if(!FIREBASE_CONFIGURED) return {...DEFAULT_STATE};
+  try{
+    const res = await fetch(DB_PATH);
+    if(!res.ok) throw new Error('bad response');
+    const data = await res.json();
+    setConnStatus(true);
+    if(data === null){
+      await saveState({...DEFAULT_STATE});
+      return {...DEFAULT_STATE};
+    }
+    return { ...DEFAULT_STATE, ...data };
+  }catch(e){
+    console.error('Read failed', e);
+    setConnStatus(false);
+    return {...DEFAULT_STATE};
+  }
+}
+async function saveState(state){
+  if(!FIREBASE_CONFIGURED) return;
+  try{
+    const res = await fetch(DB_PATH, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(state)
+    });
+    if(!res.ok) throw new Error('bad response');
+    setConnStatus(true);
+  }catch(e){
+    console.error('Storage write failed', e);
+    setConnStatus(false);
+    log('Could not reach the database — check your internet connection.', true);
+  }
+}
+
+function fmt(pence){ return '£' + (pence/100).toFixed(2); }
+
+function log(msg, isErr, ok){
+  const box = document.getElementById('terminal');
+  if(!box) return;
+  const line = document.createElement('div');
+  line.className = isErr ? 'err' : (ok ? 'ok' : '');
+  line.textContent = msg;
+  box.appendChild(line);
+  box.scrollTop = box.scrollHeight;
+}
+
+// ---------- catalog rendering ----------
+function buildGrid(containerId, items){
+  const el = document.getElementById(containerId);
+  el.innerHTML = '';
+  items.forEach((item) => {
+    const btn = document.createElement('button');
+    btn.className = 'item-card ' + (item.wallet === 'essential' ? 'ess' : 'disc');
+    btn.innerHTML = `<div class="nm">${item.name}</div><div class="pr">${fmt(item.price)}</div><span class="badge">${item.wallet}</span>`;
+    btn.onclick = () => scanItem(item);
+    el.appendChild(btn);
+  });
+}
+
+function scanItem(item){
+  scanBeep();
+  basket.push({...item});
+  log(`SCAN: ${item.name} — ${fmt(item.price)}`);
+  renderBasket();
+}
+
+function clearBasket(){
+  basket = [];
+  renderBasket();
+}
+
+function renderBasket(){
+  const normalBox = document.getElementById('basket-normal');
+  const waitBox = document.getElementById('waiting-box');
+  if(tillAwaiting){
+    normalBox.style.display = 'none';
+    waitBox.classList.add('show');
+    return;
+  }
+  normalBox.style.display = 'block';
+  waitBox.classList.remove('show');
+
+  const linesEl = document.getElementById('basket-lines');
+  const payBtn = document.getElementById('pay-btn');
+  if(basket.length === 0){
+    linesEl.innerHTML = '<div class="basket-empty">No items scanned yet.</div>';
+    payBtn.disabled = true;
+  } else {
+    linesEl.innerHTML = '';
+    basket.forEach((item, idx) => {
+      const row = document.createElement('div');
+      row.className = 'basket-line';
+      row.innerHTML = `<span>${item.name}</span><span>${fmt(item.price)}<span class="rm" onclick="removeItem(${idx})">remove</span></span>`;
+      linesEl.appendChild(row);
+    });
+    payBtn.disabled = false;
+  }
+  const total = basket.reduce((sum, i) => sum + i.price, 0);
+  document.getElementById('basket-total-val').textContent = fmt(total);
+}
+
+function removeItem(idx){
+  basket.splice(idx, 1);
+  renderBasket();
+}
+
+// ---------- payment: till requests, card taps to approve ----------
+async function requestPayment(){
+  if(basket.length === 0) return;
+  const state = await getState();
+
+  const essTotal = basket.filter(i => i.wallet === 'essential').reduce((s,i) => s+i.price, 0);
+  const discTotal = basket.filter(i => i.wallet === 'discretionary').reduce((s,i) => s+i.price, 0);
+
+  state.pending_payment = {
+    status: 'awaiting_tap',
+    items: basket.map(i => ({ name: i.name, price: i.price, wallet: i.wallet })),
+    essTotal, discTotal,
+    total: essTotal + discTotal,
+    requestId: Date.now()
+  };
+  await saveState(state);
+
+  tillAwaiting = true;
+  document.getElementById('waiting-amt').textContent = fmt(essTotal + discTotal);
+  renderBasket();
+  log(`--- Payment requested: ${basket.length} item(s), ${fmt(essTotal + discTotal)} — waiting for card tap ---`);
+}
+
+async function cancelPayment(){
+  const state = await getState();
+  if(state.pending_payment && state.pending_payment.status === 'awaiting_tap'){
+    state.pending_payment = null;
+    await saveState(state);
+  }
+  tillAwaiting = false;
+  renderBasket();
+  log('Payment request cancelled.');
+}
+
+async function finalizePayment(state, pp){
+  const essOk = pp.essTotal === 0 || state.essential_balance_pence >= pp.essTotal;
+  const discProspective = state.cumulative_discretionary_spend_pence + pp.discTotal;
+  const discCapOk = discProspective <= state.discretionary_cap_pence;
+  const discBalOk = pp.discTotal === 0 || state.discretionary_balance_pence >= pp.discTotal;
+  const discOk = pp.discTotal === 0 || (discCapOk && discBalOk);
+
+  log(`--- Card presented: ${pp.items.length} item(s), ${fmt(pp.total)} total ---`);
+
+  if(essOk && discOk){
+    state.essential_balance_pence -= pp.essTotal;
+    state.discretionary_balance_pence -= pp.discTotal;
+    state.cumulative_discretionary_spend_pence = discProspective;
+    state.last_tx = { approved: true, items: pp.items.map(i => ({ name: i.name, amount: i.price })), essTotal: pp.essTotal, discTotal: pp.discTotal };
+    state.pending_payment = null;
+    await saveState(state);
+    paySuccessTone();
+    log(`APPROVED — essential ${fmt(pp.essTotal)}, discretionary ${fmt(pp.discTotal)}`, false, true);
+  } else {
+    let reason = [];
+    if(!essOk) reason.push('essential balance too low');
+    if(!discOk) reason.push(!discCapOk ? 'exceeds discretionary cap' : 'discretionary balance too low');
+    state.last_tx = { approved: false, items: pp.items.map(i => ({ name: i.name, amount: i.price })), reason: reason.join(', ') };
+    state.pending_payment = null;
+    await saveState(state);
+    payDeclineTone();
+    log(`DECLINED — ${reason.join(', ')}`, true);
+  }
+
+  basket = [];
+  tillAwaiting = false;
+  renderBasket();
+}
+
+async function tapToPay(){
+  if(processingPayment) return;
+  const state = await getState();
+  if(!state.pending_payment || state.pending_payment.status !== 'awaiting_tap') return;
+  processingPayment = true;
+  tapChirp();
+  document.getElementById('tap-processing').classList.add('show');
+  state.pending_payment.status = 'card_presented';
+  await saveState(state);
+  setTimeout(() => { processingPayment = false; }, 1500);
+}
+
+async function resetLedger(){
+  await saveState({...DEFAULT_STATE});
+  basket = [];
+  tillAwaiting = false;
+  renderBasket();
+  const term = document.getElementById('terminal');
+  if(term) term.innerHTML = '<span class="sys">Ledger reset. System online.</span>';
+  render();
+}
+
+// ---------- render ----------
+async function render(){
+  const state = await getState();
+
+  const balance = walletView === 'essential' ? state.essential_balance_pence : state.discretionary_balance_pence;
+  document.getElementById('card-balance').textContent = fmt(balance);
+  document.getElementById('card-el').className = 'card ' + (walletView === 'essential' ? 'ess' : 'disc');
+  document.getElementById('card-tag').textContent = (walletView === 'essential' ? 'Essential' : 'Discretionary') + ' Wallet';
+  document.getElementById('card-number').textContent = CARD_NUMBERS[walletView];
+  document.getElementById('token-id-text').textContent = state.identity_ref;
+
+  const lastTxEl = document.getElementById('card-last-tx');
+  if(state.last_tx){
+    if(state.last_tx.approved){
+      const lines = state.last_tx.items.map(i => `${i.name} — ${fmt(i.amount)}`).join('<br>');
+      lastTxEl.innerHTML = `Last payment approved:<div class="receipt-lines">${lines}</div>`;
+    } else {
+      lastTxEl.innerHTML = `Last payment <b style="color:var(--red)">declined</b> — ${state.last_tx.reason}`;
+    }
+  } else {
+    lastTxEl.textContent = '';
+  }
+
+  // Card view: show tap-to-pay overlay if a payment is awaiting
+  const overlay = document.getElementById('tap-overlay');
+  const pp = state.pending_payment;
+  if(pp && pp.status === 'awaiting_tap'){
+    overlay.classList.add('show');
+    document.getElementById('tap-amount').textContent = fmt(pp.total);
+    document.getElementById('tap-processing').classList.remove('show');
+    tapOverlayShown = true;
+  } else if(pp && pp.status === 'card_presented'){
+    // keep processing state visible until till clears it
+  } else {
+    overlay.classList.remove('show');
+    document.getElementById('tap-processing').classList.remove('show');
+    tapOverlayShown = false;
+  }
+
+  // Till view: totals + handle pending payment lifecycle
+  const total = state.essential_balance_pence + state.discretionary_balance_pence;
+  document.getElementById('till-total').textContent = fmt(total);
+  document.getElementById('till-disc-spend').textContent =
+    fmt(state.cumulative_discretionary_spend_pence) + ' / ' + fmt(state.discretionary_cap_pence);
+
+  if(pp && pp.status === 'awaiting_tap' && !tillAwaiting){
+    tillAwaiting = true;
+    document.getElementById('waiting-amt').textContent = fmt(pp.total);
+    renderBasket();
+  } else if(pp && pp.status === 'card_presented' && !processingPayment){
+    processingPayment = true;
+    await finalizePayment(state, pp);
+    processingPayment = false;
+  } else if(!pp && tillAwaiting){
+    tillAwaiting = false;
+    renderBasket();
+  }
+}
+
+buildGrid('grid-groceries', CATALOG.groceries);
+buildGrid('grid-essentials-other', CATALOG.essentials_other);
+buildGrid('grid-discretionary', CATALOG.discretionary);
+renderBasket();
+
+if(!FIREBASE_CONFIGURED){
+  document.getElementById('setup-banner').style.display = 'block';
+  document.getElementById('conn-status').textContent = 'Not configured';
+  document.getElementById('conn-status').style.color = 'var(--red)';
+} else {
+  render();
+  setInterval(render, 2000);
+}
+</script>
+</body>
+</html>

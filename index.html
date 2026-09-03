@@ -64,6 +64,7 @@
     background:linear-gradient(150deg, #23201d 0%, #12100e 100%);
     border-color:rgba(217,143,79,.4);
   }
+  .card.frozen{filter:grayscale(0.7); opacity:0.55;}
   .card.charging{transform:scale(0.97);}
   .card.ess.charging{box-shadow:0 0 0 3px rgba(79,168,160,.5), 0 20px 40px rgba(0,0,0,.35);}
   .card.disc.charging{box-shadow:0 0 0 3px rgba(217,143,79,.5), 0 20px 40px rgba(0,0,0,.35);}
@@ -96,6 +97,16 @@
   .last-tx{margin-top:14px; font-size:12px; color:var(--sub); text-align:center; min-height:16px;}
   .last-tx b{color:var(--text);}
   .receipt-lines{margin-top:8px; font-family:'IBM Plex Mono',monospace; font-size:11px; color:var(--sub); text-align:left; line-height:1.6;}
+  .alert-line{margin-top:6px; font-size:11px; color:var(--amber);}
+
+  /* ---- Security settings (opt-in) ---- */
+  .settings-box{margin-top:14px; background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:14px 16px;}
+  .settings-row{display:flex; align-items:center; gap:9px; font-size:12px; color:var(--sub);}
+  .settings-row input[type=checkbox]{width:15px; height:15px; accent-color:var(--teal);}
+  .settings-note{font-size:10.5px; color:var(--sub); margin-top:6px; line-height:1.5;}
+  .contact-input{margin-top:8px; width:100%; background:var(--panel-2); border:1px solid var(--line); border-radius:7px;
+    padding:8px 10px; color:var(--text); font-family:'Inter',sans-serif; font-size:12px;}
+  .contact-input::placeholder{color:var(--sub);}
 
   /* ---- Tap-to-pay overlay ---- */
   .tap-overlay{
@@ -103,6 +114,7 @@
     text-align:center; margin-bottom:18px; display:none;
   }
   .tap-overlay.show{display:block;}
+  .tap-overlay.confirm-step{border-color:var(--amber);}
   .tap-overlay .amt{font-family:'Fraunces',serif; font-size:30px; margin:6px 0 2px;}
   .tap-overlay .desc{font-size:12px; color:var(--sub); margin-bottom:16px;}
   .tap-ring{
@@ -110,23 +122,38 @@
     border:2px solid var(--teal); display:flex; align-items:center; justify-content:center;
     animation:ring-pulse 1.6s infinite; cursor:pointer;
   }
+  .tap-ring.amber{border-color:var(--amber); animation:ring-pulse-amber 1.6s infinite;}
   @keyframes ring-pulse{0%{box-shadow:0 0 0 0 rgba(79,168,160,.45);}70%{box-shadow:0 0 0 16px rgba(79,168,160,0);}100%{box-shadow:0 0 0 0 rgba(79,168,160,0);}}
+  @keyframes ring-pulse-amber{0%{box-shadow:0 0 0 0 rgba(217,143,79,.45);}70%{box-shadow:0 0 0 16px rgba(217,143,79,0);}100%{box-shadow:0 0 0 0 rgba(217,143,79,0);}}
   .tap-btn{background:var(--teal); color:#0c1016; border:none; padding:11px 22px; border-radius:9px; font-weight:700; font-size:13px; cursor:pointer;}
+  .tap-btn.amber{background:var(--amber);}
   .tap-processing{display:none; font-size:12px; color:var(--sub); margin-top:10px;}
   .tap-processing.show{display:block;}
+
+  /* ---- Frozen card overlay ---- */
+  .frozen-overlay{
+    background:var(--panel); border:2px solid var(--red); border-radius:14px; padding:22px;
+    text-align:center; margin-bottom:18px; display:none;
+  }
+  .frozen-overlay.show{display:block;}
+  .frozen-overlay .ficon{font-size:28px; margin-bottom:8px;}
+  .frozen-overlay .ftitle{font-family:'Fraunces',serif; font-size:19px; color:var(--red); margin-bottom:6px;}
+  .frozen-overlay .fdesc{font-size:12px; color:var(--sub); margin-bottom:16px; line-height:1.5;}
+  .unlock-btn{background:var(--red); color:#fff; border:none; padding:11px 22px; border-radius:9px; font-weight:700; font-size:13px; cursor:pointer;}
 
   /* ---- Till view ---- */
   .till-h{font-family:'Fraunces',serif; font-size:18px; margin:0 0 4px;}
   .till-sub{font-size:12px; color:var(--sub); margin:0 0 16px;}
   .cat-label{font-size:11px; text-transform:uppercase; letter-spacing:.08em; color:var(--sub); margin:18px 0 8px;}
   .item-grid{display:grid; grid-template-columns:1fr 1fr; gap:8px;}
-  .item-card{background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:11px 12px; cursor:pointer; text-align:left;}
+  .item-card{background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:11px 12px; cursor:pointer; text-align:left; color:var(--text);}
   .item-card:active{transform:scale(0.98);}
   .item-card .nm{font-size:12.5px; font-weight:600; line-height:1.25;}
   .item-card .pr{font-family:'IBM Plex Mono',monospace; font-size:12px; margin-top:6px;}
   .item-card.ess .pr{color:var(--teal);}
   .item-card.disc .pr{color:var(--amber);}
   .item-card .badge{font-size:9px; text-transform:uppercase; letter-spacing:.05em; color:var(--sub); margin-top:3px; display:block;}
+  .item-card:disabled, .item-card.locked{opacity:.35; cursor:not-allowed;}
 
   .basket-box{background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:14px 16px; margin-top:22px;}
   .basket-h{display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;}
@@ -150,6 +177,10 @@
   @keyframes spin{to{transform:rotate(360deg);}}
   .cancel-btn{margin-top:14px; background:transparent; border:1px solid var(--line); color:var(--sub); padding:8px 16px; border-radius:8px; font-size:12px; cursor:pointer;}
 
+  .frozen-banner{display:none; background:rgba(217,105,95,.1); border:1px solid rgba(217,105,95,.4); border-radius:10px;
+    padding:12px 14px; font-size:12px; color:var(--red); text-align:center; margin-top:16px;}
+  .frozen-banner.show{display:block;}
+
   .ledger-summary{background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:16px; text-align:center; margin:20px 0 16px;}
   .ledger-summary .lbl{font-size:11px; color:var(--sub); text-transform:uppercase; letter-spacing:.06em;}
   .ledger-summary .total{font-family:'Fraunces',serif; font-size:26px; margin:4px 0;}
@@ -161,6 +192,7 @@
   .terminal .err{color:var(--red);}
   .terminal .sys{color:var(--sub);}
   .terminal .ok{color:#7fdc9a;}
+  .terminal .warn{color:var(--amber);}
 
   .reset-btn{width:100%; margin-top:16px; background:transparent; border:1px solid rgba(217,105,95,.4); color:var(--red);
     padding:9px; border-radius:8px; font-size:12px; font-weight:600; cursor:pointer;}
@@ -185,8 +217,15 @@
 <!-- ================= CARD VIEW ================= -->
 <div class="view active" id="view-card">
 
+  <div class="frozen-overlay" id="frozen-overlay">
+    <div class="ficon">🔒</div>
+    <div class="ftitle">Card frozen</div>
+    <div class="fdesc">Three declined attempts in a row were detected. This is a security pause, not a lock-out — you're always in control of your own card.</div>
+    <button class="unlock-btn" onclick="unlockCard()">Unlock my card</button>
+  </div>
+
   <div class="tap-overlay" id="tap-overlay">
-    <div class="desc">Payment requested by the till</div>
+    <div class="desc" id="tap-desc">Payment requested by the till</div>
     <div class="amt" id="tap-amount">£0.00</div>
     <div class="tap-ring" id="tap-ring" onclick="tapToPay()">
       <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--teal)">
@@ -195,7 +234,7 @@
         <circle cx="12" cy="12" r="1.4" fill="currentColor" stroke="none"/>
       </svg>
     </div>
-    <button class="tap-btn" onclick="tapToPay()">Tap to Pay</button>
+    <button class="tap-btn" id="tap-btn" onclick="tapToPay()">Tap to Pay</button>
     <div class="tap-processing" id="tap-processing">Processing…</div>
   </div>
 
@@ -247,6 +286,15 @@
     <div class="token-note">Synced with the till automatically.</div>
   </div>
 
+  <div class="settings-box">
+    <label class="settings-row">
+      <input type="checkbox" id="notify-toggle" onchange="saveNotifySettings()">
+      Notify a trusted contact for discretionary purchases over £20
+    </label>
+    <input type="text" class="contact-input" id="notify-contact" placeholder="Contact name (e.g. Mum, Sam)" onchange="saveNotifySettings()">
+    <div class="settings-note">Optional and student-controlled — off by default, and only for discretionary spend above the threshold you choose.</div>
+  </div>
+
   <div class="last-tx" id="card-last-tx"></div>
 </div>
 
@@ -254,6 +302,8 @@
 <div class="view" id="view-till" style="max-width:480px;">
   <div class="till-h">Retail counter</div>
   <div class="till-sub">Tap an item to scan it into the basket, then request payment.</div>
+
+  <div class="frozen-banner" id="till-frozen-banner">This card is currently frozen after repeated declines. The student needs to unlock it on their phone before another payment can be requested.</div>
 
   <div class="cat-label">Groceries · Essential</div>
   <div class="item-grid" id="grid-groceries"></div>
@@ -276,7 +326,7 @@
     </div>
     <div class="waiting-box" id="waiting-box">
       <div class="spinner"></div>
-      <div class="wtxt">Waiting for card tap…</div>
+      <div class="wtxt" id="waiting-text">Waiting for card tap…</div>
       <div class="wamt" id="waiting-amt">£0.00</div>
       <button class="cancel-btn" onclick="cancelPayment()">Cancel</button>
     </div>
@@ -301,8 +351,13 @@ const DEFAULT_STATE = {
   discretionary_cap_pence: 6000,
   cumulative_discretionary_spend_pence: 0,
   last_tx: null,
-  pending_payment: null
+  pending_payment: null,
+  decline_streak: 0,
+  card_frozen: false,
+  notify_settings: { enabled: false, contact: '' }
 };
+
+const DISCRETIONARY_ALERT_THRESHOLD_PENCE = 2000; // £20 — student-set in a real build
 
 // UK-store-style catalog. wallet: 'essential' | 'discretionary'
 const CATALOG = {
@@ -345,7 +400,7 @@ let basket = []; // { name, price, wallet }
 let audioCtx = null;
 let tillAwaiting = false;
 let processingPayment = false;
-let tapOverlayShown = false;
+let notifySettingsLoaded = false;
 
 function setMode(m){
   mode = m;
@@ -412,6 +467,19 @@ function payDeclineTone(){
   gain.gain.exponentialRampToValueAtTime(0.001, ac.currentTime + 0.35);
   osc.start(); osc.stop(ac.currentTime + 0.35);
 }
+function freezeTone(){
+  const ac = ctx();
+  [420, 300, 200].forEach((freq, i) => {
+    const osc = ac.createOscillator();
+    const gain = ac.createGain();
+    osc.connect(gain); gain.connect(ac.destination);
+    osc.type = 'triangle';
+    osc.frequency.setValueAtTime(freq, ac.currentTime + i*0.14);
+    gain.gain.setValueAtTime(0.08, ac.currentTime + i*0.14);
+    gain.gain.exponentialRampToValueAtTime(0.001, ac.currentTime + i*0.14 + 0.13);
+    osc.start(ac.currentTime + i*0.14); osc.stop(ac.currentTime + i*0.14 + 0.13);
+  });
+}
 
 // ---------- storage (Firebase Realtime Database) ----------
 // PASTE YOUR FIREBASE DATABASE URL BELOW — see setup steps. No trailing slash.
@@ -429,6 +497,12 @@ function setConnStatus(ok){
   el.style.color = ok ? 'var(--teal)' : 'var(--red)';
 }
 
+function mergeState(data){
+  const merged = { ...DEFAULT_STATE, ...data };
+  merged.notify_settings = { ...DEFAULT_STATE.notify_settings, ...(data && data.notify_settings ? data.notify_settings : {}) };
+  return merged;
+}
+
 async function getState(){
   if(!FIREBASE_CONFIGURED) return {...DEFAULT_STATE};
   try{
@@ -440,7 +514,7 @@ async function getState(){
       await saveState({...DEFAULT_STATE});
       return {...DEFAULT_STATE};
     }
-    return { ...DEFAULT_STATE, ...data };
+    return mergeState(data);
   }catch(e){
     console.error('Read failed', e);
     setConnStatus(false);
@@ -466,11 +540,11 @@ async function saveState(state){
 
 function fmt(pence){ return '£' + (pence/100).toFixed(2); }
 
-function log(msg, isErr, ok){
+function log(msg, isErr, ok, warn){
   const box = document.getElementById('terminal');
   if(!box) return;
   const line = document.createElement('div');
-  line.className = isErr ? 'err' : (ok ? 'ok' : '');
+  line.className = isErr ? 'err' : (ok ? 'ok' : (warn ? 'warn' : ''));
   line.textContent = msg;
   box.appendChild(line);
   box.scrollTop = box.scrollHeight;
@@ -536,10 +610,24 @@ function removeItem(idx){
   renderBasket();
 }
 
+// ---------- notify settings (card side, opt-in) ----------
+async function saveNotifySettings(){
+  const enabled = document.getElementById('notify-toggle').checked;
+  const contact = document.getElementById('notify-contact').value.trim();
+  const state = await getState();
+  state.notify_settings = { enabled, contact };
+  await saveState(state);
+}
+
 // ---------- payment: till requests, card taps to approve ----------
 async function requestPayment(){
   if(basket.length === 0) return;
   const state = await getState();
+
+  if(state.card_frozen){
+    log('Cannot request payment — card is frozen until the student unlocks it.', true);
+    return;
+  }
 
   const essTotal = basket.filter(i => i.wallet === 'essential').reduce((s,i) => s+i.price, 0);
   const discTotal = basket.filter(i => i.wallet === 'discretionary').reduce((s,i) => s+i.price, 0);
@@ -554,6 +642,7 @@ async function requestPayment(){
   await saveState(state);
 
   tillAwaiting = true;
+  document.getElementById('waiting-text').textContent = 'Waiting for card tap…';
   document.getElementById('waiting-amt').textContent = fmt(essTotal + discTotal);
   renderBasket();
   log(`--- Payment requested: ${basket.length} item(s), ${fmt(essTotal + discTotal)} — waiting for card tap ---`);
@@ -561,7 +650,7 @@ async function requestPayment(){
 
 async function cancelPayment(){
   const state = await getState();
-  if(state.pending_payment && state.pending_payment.status === 'awaiting_tap'){
+  if(state.pending_payment && (state.pending_payment.status === 'awaiting_tap' || state.pending_payment.status === 'confirm_discretionary')){
     state.pending_payment = null;
     await saveState(state);
   }
@@ -583,7 +672,18 @@ async function finalizePayment(state, pp){
     state.essential_balance_pence -= pp.essTotal;
     state.discretionary_balance_pence -= pp.discTotal;
     state.cumulative_discretionary_spend_pence = discProspective;
-    state.last_tx = { approved: true, items: pp.items.map(i => ({ name: i.name, amount: i.price })), essTotal: pp.essTotal, discTotal: pp.discTotal };
+    state.decline_streak = 0;
+    let notified = false;
+    if(pp.discTotal > DISCRETIONARY_ALERT_THRESHOLD_PENCE && state.notify_settings && state.notify_settings.enabled && state.notify_settings.contact){
+      notified = true;
+      log(`Alert sent to ${state.notify_settings.contact} — discretionary purchase over ${fmt(DISCRETIONARY_ALERT_THRESHOLD_PENCE)}`, false, false, true);
+    }
+    state.last_tx = {
+      approved: true,
+      items: pp.items.map(i => ({ name: i.name, amount: i.price })),
+      essTotal: pp.essTotal, discTotal: pp.discTotal,
+      notified, notifiedContact: notified ? state.notify_settings.contact : null
+    };
     state.pending_payment = null;
     await saveState(state);
     paySuccessTone();
@@ -594,9 +694,20 @@ async function finalizePayment(state, pp){
     if(!discOk) reason.push(!discCapOk ? 'exceeds discretionary cap' : 'discretionary balance too low');
     state.last_tx = { approved: false, items: pp.items.map(i => ({ name: i.name, amount: i.price })), reason: reason.join(', ') };
     state.pending_payment = null;
-    await saveState(state);
-    payDeclineTone();
-    log(`DECLINED — ${reason.join(', ')}`, true);
+    state.decline_streak = (state.decline_streak || 0) + 1;
+
+    if(state.decline_streak >= 3){
+      state.card_frozen = true;
+      await saveState(state);
+      payDeclineTone();
+      log(`DECLINED — ${reason.join(', ')}`, true);
+      log('SECURITY: 3 declines in a row detected — card frozen automatically.', true);
+      freezeTone();
+    } else {
+      await saveState(state);
+      payDeclineTone();
+      log(`DECLINED — ${reason.join(', ')} (${state.decline_streak}/3 declines before auto-freeze)`, true);
+    }
   }
 
   basket = [];
@@ -607,19 +718,50 @@ async function finalizePayment(state, pp){
 async function tapToPay(){
   if(processingPayment) return;
   const state = await getState();
-  if(!state.pending_payment || state.pending_payment.status !== 'awaiting_tap') return;
-  processingPayment = true;
-  tapChirp();
-  document.getElementById('tap-processing').classList.add('show');
-  state.pending_payment.status = 'card_presented';
+  if(state.card_frozen) return;
+  const pp = state.pending_payment;
+  if(!pp) return;
+
+  if(pp.status === 'awaiting_tap'){
+    if(pp.discTotal > 0){
+      // Discretionary spend needs a deliberate second confirmation — essential-only stays one-tap.
+      tapChirp();
+      pp.status = 'confirm_discretionary';
+      await saveState(state);
+      return;
+    }
+    processingPayment = true;
+    tapChirp();
+    document.getElementById('tap-processing').classList.add('show');
+    pp.status = 'card_presented';
+    await saveState(state);
+    setTimeout(() => { processingPayment = false; }, 1500);
+    return;
+  }
+
+  if(pp.status === 'confirm_discretionary'){
+    processingPayment = true;
+    tapChirp();
+    document.getElementById('tap-processing').classList.add('show');
+    pp.status = 'card_presented';
+    await saveState(state);
+    setTimeout(() => { processingPayment = false; }, 1500);
+  }
+}
+
+async function unlockCard(){
+  const state = await getState();
+  state.card_frozen = false;
+  state.decline_streak = 0;
   await saveState(state);
-  setTimeout(() => { processingPayment = false; }, 1500);
+  log('Card unlocked by student.', false, true);
 }
 
 async function resetLedger(){
   await saveState({...DEFAULT_STATE});
   basket = [];
   tillAwaiting = false;
+  notifySettingsLoaded = false;
   renderBasket();
   const term = document.getElementById('terminal');
   if(term) term.innerHTML = '<span class="sys">Ledger reset. System online.</span>';
@@ -632,16 +774,23 @@ async function render(){
 
   const balance = walletView === 'essential' ? state.essential_balance_pence : state.discretionary_balance_pence;
   document.getElementById('card-balance').textContent = fmt(balance);
-  document.getElementById('card-el').className = 'card ' + (walletView === 'essential' ? 'ess' : 'disc');
+  document.getElementById('card-el').className = 'card ' + (walletView === 'essential' ? 'ess' : 'disc') + (state.card_frozen ? ' frozen' : '');
   document.getElementById('card-tag').textContent = (walletView === 'essential' ? 'Essential' : 'Discretionary') + ' Wallet';
   document.getElementById('card-number').textContent = CARD_NUMBERS[walletView];
   document.getElementById('token-id-text').textContent = state.identity_ref;
+
+  if(!notifySettingsLoaded){
+    document.getElementById('notify-toggle').checked = !!(state.notify_settings && state.notify_settings.enabled);
+    document.getElementById('notify-contact').value = (state.notify_settings && state.notify_settings.contact) || '';
+    notifySettingsLoaded = true;
+  }
 
   const lastTxEl = document.getElementById('card-last-tx');
   if(state.last_tx){
     if(state.last_tx.approved){
       const lines = state.last_tx.items.map(i => `${i.name} — ${fmt(i.amount)}`).join('<br>');
-      lastTxEl.innerHTML = `Last payment approved:<div class="receipt-lines">${lines}</div>`;
+      const alertLine = state.last_tx.notified ? `<div class="alert-line">Alert sent to ${state.last_tx.notifiedContact}</div>` : '';
+      lastTxEl.innerHTML = `Last payment approved:<div class="receipt-lines">${lines}</div>${alertLine}`;
     } else {
       lastTxEl.innerHTML = `Last payment <b style="color:var(--red)">declined</b> — ${state.last_tx.reason}`;
     }
@@ -649,20 +798,40 @@ async function render(){
     lastTxEl.textContent = '';
   }
 
-  // Card view: show tap-to-pay overlay if a payment is awaiting
+  // Card view: frozen state takes priority over the tap overlay
   const overlay = document.getElementById('tap-overlay');
+  const frozenOverlay = document.getElementById('frozen-overlay');
   const pp = state.pending_payment;
-  if(pp && pp.status === 'awaiting_tap'){
-    overlay.classList.add('show');
-    document.getElementById('tap-amount').textContent = fmt(pp.total);
-    document.getElementById('tap-processing').classList.remove('show');
-    tapOverlayShown = true;
-  } else if(pp && pp.status === 'card_presented'){
-    // keep processing state visible until till clears it
-  } else {
+
+  if(state.card_frozen){
+    frozenOverlay.classList.add('show');
     overlay.classList.remove('show');
     document.getElementById('tap-processing').classList.remove('show');
-    tapOverlayShown = false;
+  } else {
+    frozenOverlay.classList.remove('show');
+    if(pp && pp.status === 'awaiting_tap'){
+      overlay.classList.add('show');
+      overlay.classList.remove('confirm-step');
+      document.getElementById('tap-desc').textContent = 'Payment requested by the till';
+      document.getElementById('tap-amount').textContent = fmt(pp.total);
+      document.getElementById('tap-ring').classList.remove('amber');
+      document.getElementById('tap-btn').classList.remove('amber');
+      document.getElementById('tap-btn').textContent = 'Tap to Pay';
+      document.getElementById('tap-processing').classList.remove('show');
+    } else if(pp && pp.status === 'confirm_discretionary'){
+      overlay.classList.add('show', 'confirm-step');
+      document.getElementById('tap-desc').textContent = 'This includes a discretionary purchase — confirm to proceed';
+      document.getElementById('tap-amount').textContent = fmt(pp.total);
+      document.getElementById('tap-ring').classList.add('amber');
+      document.getElementById('tap-btn').classList.add('amber');
+      document.getElementById('tap-btn').textContent = 'Confirm Discretionary Spend';
+      document.getElementById('tap-processing').classList.remove('show');
+    } else if(pp && pp.status === 'card_presented'){
+      // keep processing state visible until till clears it
+    } else {
+      overlay.classList.remove('show');
+      document.getElementById('tap-processing').classList.remove('show');
+    }
   }
 
   // Till view: totals + handle pending payment lifecycle
@@ -671,10 +840,17 @@ async function render(){
   document.getElementById('till-disc-spend').textContent =
     fmt(state.cumulative_discretionary_spend_pence) + ' / ' + fmt(state.discretionary_cap_pence);
 
-  if(pp && pp.status === 'awaiting_tap' && !tillAwaiting){
+  document.getElementById('till-frozen-banner').classList.toggle('show', !!state.card_frozen);
+  document.getElementById('pay-btn').disabled = state.card_frozen || basket.length === 0;
+
+  if(pp && (pp.status === 'awaiting_tap' || pp.status === 'confirm_discretionary') && !tillAwaiting){
     tillAwaiting = true;
+    document.getElementById('waiting-text').textContent = pp.status === 'confirm_discretionary'
+      ? 'Waiting for discretionary confirmation…' : 'Waiting for card tap…';
     document.getElementById('waiting-amt').textContent = fmt(pp.total);
     renderBasket();
+  } else if(pp && pp.status === 'confirm_discretionary' && tillAwaiting){
+    document.getElementById('waiting-text').textContent = 'Waiting for discretionary confirmation…';
   } else if(pp && pp.status === 'card_presented' && !processingPayment){
     processingPayment = true;
     await finalizePayment(state, pp);

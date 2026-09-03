@@ -129,6 +129,9 @@
   .tap-btn.amber{background:var(--amber);}
   .tap-processing{display:none; font-size:12px; color:var(--sub); margin-top:10px;}
   .tap-processing.show{display:block;}
+  .decline-link{display:block; margin:12px auto 0; background:none; border:none; color:var(--sub); font-size:12px;
+    text-decoration:underline; cursor:pointer;}
+  .decline-link:hover{color:var(--red);}
 
   /* ---- Frozen card overlay ---- */
   .frozen-overlay{
@@ -235,6 +238,7 @@
       </svg>
     </div>
     <button class="tap-btn" id="tap-btn" onclick="tapToPay()">Tap to Pay</button>
+    <button class="decline-link" id="decline-btn" onclick="declinePayment()">Decline this payment</button>
     <div class="tap-processing" id="tap-processing">Processing…</div>
   </div>
 
@@ -749,6 +753,16 @@ async function tapToPay(){
   }
 }
 
+async function declinePayment(){
+  if(processingPayment) return;
+  const state = await getState();
+  const pp = state.pending_payment;
+  if(!pp || (pp.status !== 'awaiting_tap' && pp.status !== 'confirm_discretionary')) return;
+  payDeclineTone();
+  pp.status = 'declined_by_card';
+  await saveState(state);
+}
+
 async function unlockCard(){
   const state = await getState();
   state.card_frozen = false;
@@ -854,6 +868,16 @@ async function render(){
   } else if(pp && pp.status === 'card_presented' && !processingPayment){
     processingPayment = true;
     await finalizePayment(state, pp);
+    processingPayment = false;
+  } else if(pp && pp.status === 'declined_by_card' && !processingPayment){
+    processingPayment = true;
+    log(`--- Payment declined by the student on their card — ${fmt(pp.total)} ---`, true);
+    state.pending_payment = null;
+    state.last_tx = { approved: false, items: pp.items.map(i => ({ name: i.name, amount: i.price })), reason: 'declined by student' };
+    await saveState(state);
+    basket = [];
+    tillAwaiting = false;
+    renderBasket();
     processingPayment = false;
   } else if(!pp && tillAwaiting){
     tillAwaiting = false;

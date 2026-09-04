@@ -101,6 +101,22 @@
 
   /* ---- Security settings (opt-in) ---- */
   .settings-box{margin-top:14px; background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:14px 16px;}
+  .loan-date-box{margin-top:14px; background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:14px 16px;}
+  .loan-date-box label{font-size:12px; color:var(--sub); display:block; margin-bottom:6px;}
+  .date-input{width:100%; background:var(--panel-2); border:1px solid var(--line); border-radius:7px;
+    padding:8px 10px; color:var(--text); font-family:'Inter',sans-serif; font-size:12px;}
+  .safe-spend{margin-top:10px; text-align:center;}
+  .safe-spend .amt{font-family:'Fraunces',serif; font-size:22px; color:var(--teal);}
+  .safe-spend .lbl{font-size:11px; color:var(--sub); margin-top:2px;}
+  .safe-spend.expired .amt{color:var(--red);}
+  .security-details{margin-top:14px; background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:2px 16px;}
+  .security-details summary{padding:12px 0; font-size:12.5px; font-weight:600; cursor:pointer; color:var(--text); list-style:none;}
+  .security-details summary::-webkit-details-marker{display:none;}
+  .security-details summary::before{content:'🔒 '; }
+  .security-details summary::after{content:'▸'; float:right; color:var(--sub);}
+  .security-details[open] summary::after{content:'▾';}
+  .security-details .sec-body{font-size:11.5px; color:var(--sub); line-height:1.6; padding-bottom:14px;}
+  .security-details .sec-body b{color:var(--text);}
   .settings-row{display:flex; align-items:center; gap:9px; font-size:12px; color:var(--sub);}
   .settings-row input[type=checkbox]{width:15px; height:15px; accent-color:var(--teal);}
   .settings-note{font-size:10.5px; color:var(--sub); margin-top:6px; line-height:1.5;}
@@ -299,6 +315,22 @@
     <div class="settings-note">Optional and student-controlled — off by default, and only for discretionary spend above the threshold you choose.</div>
   </div>
 
+  <div class="loan-date-box">
+    <label for="loan-date-input">Next loan payment date</label>
+    <input type="date" class="date-input" id="loan-date-input" onchange="saveLoanDate()">
+    <div class="safe-spend" id="safe-spend-box" style="display:none;">
+      <div class="amt" id="safe-spend-amt">£0.00</div>
+      <div class="lbl" id="safe-spend-lbl">safe to spend per day (essential)</div>
+    </div>
+  </div>
+
+  <details class="security-details">
+    <summary>How is my security protected?</summary>
+    <div class="sec-body">
+      This demo never touches a real bank account. If BAV became real: <b>no bank logins or passwords would ever be stored</b> by BAV. Access would go through <b>UK Open Banking</b> — the same regulated, read-only, revocable standard already used by Monzo, Starling, and other UK banks — never screen-scraping or password storage. You could revoke access at any time from your own bank's app.
+    </div>
+  </details>
+
   <div class="last-tx" id="card-last-tx"></div>
 </div>
 
@@ -358,7 +390,8 @@ const DEFAULT_STATE = {
   pending_payment: null,
   decline_streak: 0,
   card_frozen: false,
-  notify_settings: { enabled: false, contact: '' }
+  notify_settings: { enabled: false, contact: '' },
+  next_payment_date: null
 };
 
 const DISCRETIONARY_ALERT_THRESHOLD_PENCE = 2000; // £20 — student-set in a real build
@@ -405,6 +438,22 @@ let audioCtx = null;
 let tillAwaiting = false;
 let processingPayment = false;
 let notifySettingsLoaded = false;
+let loanDateLoaded = false;
+
+function computeDailySafeSpend(state){
+  if(!state.next_payment_date) return null;
+  const today = new Date(); today.setHours(0,0,0,0);
+  const target = new Date(state.next_payment_date + 'T00:00:00');
+  const msPerDay = 86400000;
+  const daysLeft = Math.ceil((target - today) / msPerDay);
+  if(daysLeft <= 0) return { expired: true };
+  const perDayPence = Math.floor(state.essential_balance_pence / daysLeft);
+  return { perDayPence, daysLeft, expired: false };
+}
+
+function formatDateShort(iso){
+  return new Date(iso + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+}
 
 function setMode(m){
   mode = m;
@@ -623,6 +672,13 @@ async function saveNotifySettings(){
   await saveState(state);
 }
 
+async function saveLoanDate(){
+  const dateVal = document.getElementById('loan-date-input').value || null;
+  const state = await getState();
+  state.next_payment_date = dateVal;
+  await saveState(state);
+}
+
 // ---------- payment: till requests, card taps to approve ----------
 async function requestPayment(){
   if(basket.length === 0) return;
@@ -776,6 +832,7 @@ async function resetLedger(){
   basket = [];
   tillAwaiting = false;
   notifySettingsLoaded = false;
+  loanDateLoaded = false;
   renderBasket();
   const term = document.getElementById('terminal');
   if(term) term.innerHTML = '<span class="sys">Ledger reset. System online.</span>';
@@ -797,6 +854,31 @@ async function render(){
     document.getElementById('notify-toggle').checked = !!(state.notify_settings && state.notify_settings.enabled);
     document.getElementById('notify-contact').value = (state.notify_settings && state.notify_settings.contact) || '';
     notifySettingsLoaded = true;
+  }
+  if(!loanDateLoaded){
+    document.getElementById('loan-date-input').value = state.next_payment_date || '';
+    loanDateLoaded = true;
+  }
+
+  const safeSpendBox = document.getElementById('safe-spend-box');
+  if(walletView === 'essential'){
+    const calc = computeDailySafeSpend(state);
+    if(!calc){
+      safeSpendBox.style.display = 'none';
+    } else if(calc.expired){
+      safeSpendBox.style.display = 'block';
+      safeSpendBox.classList.add('expired');
+      document.getElementById('safe-spend-amt').textContent = 'Payment date has passed';
+      document.getElementById('safe-spend-lbl').textContent = 'update your next payment date above';
+    } else {
+      safeSpendBox.style.display = 'block';
+      safeSpendBox.classList.remove('expired');
+      document.getElementById('safe-spend-amt').textContent = fmt(calc.perDayPence) + '/day';
+      document.getElementById('safe-spend-lbl').textContent =
+        `safe to spend for the next ${calc.daysLeft} day${calc.daysLeft === 1 ? '' : 's'}, until your next payment lands`;
+    }
+  } else {
+    safeSpendBox.style.display = 'none';
   }
 
   const lastTxEl = document.getElementById('card-last-tx');

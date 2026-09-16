@@ -133,6 +133,13 @@
   .tap-overlay.confirm-step{border-color:var(--amber);}
   .tap-overlay .amt{font-family:'Fraunces',serif; font-size:30px; margin:6px 0 2px;}
   .tap-overlay .desc{font-size:12px; color:var(--sub); margin-bottom:16px;}
+  .reflection-note{display:none; background:rgba(217,143,79,.1); border:1px solid rgba(217,143,79,.4); border-radius:9px;
+    padding:10px 12px; font-size:12px; color:var(--amber); text-align:left; margin:0 0 16px; line-height:1.5;}
+  .reflection-note.show{display:block;}
+  .bill-row{display:flex; gap:8px; margin-top:10px;}
+  .bill-row input{flex:1;}
+  .reserve-note{margin-top:10px; font-size:11.5px; color:var(--sub); text-align:center; line-height:1.5;}
+  .reserve-note.warn{color:var(--red);}
   .tap-ring{
     width:80px; height:80px; margin:0 auto 16px; border-radius:50%;
     border:2px solid var(--teal); display:flex; align-items:center; justify-content:center;
@@ -246,6 +253,7 @@
   <div class="tap-overlay" id="tap-overlay">
     <div class="desc" id="tap-desc">Payment requested by the till</div>
     <div class="amt" id="tap-amount">£0.00</div>
+    <div class="reflection-note" id="reflection-note"></div>
     <div class="tap-ring" id="tap-ring" onclick="tapToPay()">
       <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--teal)">
         <path d="M6 12a6 6 0 0 1 12 0" stroke-opacity="0.5"/>
@@ -318,6 +326,12 @@
   <div class="loan-date-box">
     <label for="loan-date-input">Next loan payment date</label>
     <input type="date" class="date-input" id="loan-date-input" onchange="saveLoanDate()">
+    <label for="bill-amount-input" style="margin-top:12px;">Upcoming essential bill (optional — e.g. rent)</label>
+    <div class="bill-row">
+      <input type="number" class="date-input" id="bill-amount-input" placeholder="Amount (£)" min="0" step="0.01" onchange="saveLoanDate()">
+      <input type="date" class="date-input" id="bill-date-input" onchange="saveLoanDate()">
+    </div>
+    <div class="reserve-note" id="reserve-note" style="display:none;"></div>
     <div class="safe-spend" id="safe-spend-box" style="display:none;">
       <div class="amt" id="safe-spend-amt">£0.00</div>
       <div class="lbl" id="safe-spend-lbl">safe to spend per day (essential)</div>
@@ -391,10 +405,12 @@ const DEFAULT_STATE = {
   decline_streak: 0,
   card_frozen: false,
   notify_settings: { enabled: false, contact: '' },
-  next_payment_date: null
+  next_payment_date: null,
+  next_essential_bill: { amount_pence: 0, due_date: null }
 };
 
 const DISCRETIONARY_ALERT_THRESHOLD_PENCE = 2000; // £20 — student-set in a real build
+const REFLECTION_THRESHOLD_PCT = 30; // nudge shown when a purchase eats this much of the remaining discretionary pot
 
 // UK-store-style catalog. wallet: 'essential' | 'discretionary'
 const CATALOG = {
@@ -440,13 +456,32 @@ let processingPayment = false;
 let notifySettingsLoaded = false;
 let loanDateLoaded = false;
 
+function daysUntil(dateStr){
+  const today = new Date(); today.setHours(0,0,0,0);
+  const target = new Date(dateStr + 'T00:00:00');
+  return Math.ceil((target - today) / 86400000);
+}
+
 function computeDailySafeSpend(state){
   if(!state.next_payment_date) return null;
-  const today = new Date(); today.setHours(0,0,0,0);
-  const target = new Date(state.next_payment_date + 'T00:00:00');
-  const msPerDay = 86400000;
-  const daysLeft = Math.ceil((target - today) / msPerDay);
+  const daysLeft = daysUntil(state.next_payment_date);
   if(daysLeft <= 0) return { expired: true };
+
+  const bill = state.next_essential_bill;
+  if(bill && bill.amount_pence > 0 && bill.due_date){
+    const billDaysLeft = daysUntil(bill.due_date);
+    if(billDaysLeft > 0){
+      // A bill is still upcoming before the next payment lands — reserve it first,
+      // then spread only what's left over the days until that bill is due.
+      const spendable = state.essential_balance_pence - bill.amount_pence;
+      if(spendable <= 0){
+        return { insufficientForBill: true, shortfall: -spendable, billDaysLeft, billAmount: bill.amount_pence };
+      }
+      const perDayPence = Math.floor(spendable / billDaysLeft);
+      return { perDayPence, daysLeft: billDaysLeft, expired: false, reservedForBill: bill.amount_pence, billDaysLeft };
+    }
+  }
+
   const perDayPence = Math.floor(state.essential_balance_pence / daysLeft);
   return { perDayPence, daysLeft, expired: false };
 }
@@ -553,6 +588,7 @@ function setConnStatus(ok){
 function mergeState(data){
   const merged = { ...DEFAULT_STATE, ...data };
   merged.notify_settings = { ...DEFAULT_STATE.notify_settings, ...(data && data.notify_settings ? data.notify_settings : {}) };
+  merged.next_essential_bill = { ...DEFAULT_STATE.next_essential_bill, ...(data && data.next_essential_bill ? data.next_essential_bill : {}) };
   return merged;
 }
 
@@ -674,8 +710,14 @@ async function saveNotifySettings(){
 
 async function saveLoanDate(){
   const dateVal = document.getElementById('loan-date-input').value || null;
+  const billAmountRaw = document.getElementById('bill-amount-input').value;
+  const billDateVal = document.getElementById('bill-date-input').value || null;
   const state = await getState();
   state.next_payment_date = dateVal;
+  state.next_essential_bill = {
+    amount_pence: billAmountRaw ? Math.round(parseFloat(billAmountRaw) * 100) : 0,
+    due_date: billDateVal
+  };
   await saveState(state);
 }
 
@@ -857,10 +899,16 @@ async function render(){
   }
   if(!loanDateLoaded){
     document.getElementById('loan-date-input').value = state.next_payment_date || '';
+    const bill = state.next_essential_bill;
+    document.getElementById('bill-amount-input').value = (bill && bill.amount_pence > 0) ? (bill.amount_pence / 100).toFixed(2) : '';
+    document.getElementById('bill-date-input').value = (bill && bill.due_date) ? bill.due_date : '';
     loanDateLoaded = true;
   }
 
   const safeSpendBox = document.getElementById('safe-spend-box');
+  const reserveNote = document.getElementById('reserve-note');
+  reserveNote.style.display = 'none';
+  reserveNote.classList.remove('warn');
   if(walletView === 'essential'){
     const calc = computeDailySafeSpend(state);
     if(!calc){
@@ -870,12 +918,22 @@ async function render(){
       safeSpendBox.classList.add('expired');
       document.getElementById('safe-spend-amt').textContent = 'Payment date has passed';
       document.getElementById('safe-spend-lbl').textContent = 'update your next payment date above';
+    } else if(calc.insufficientForBill){
+      safeSpendBox.style.display = 'none';
+      reserveNote.style.display = 'block';
+      reserveNote.classList.add('warn');
+      reserveNote.textContent = `Your balance is ${fmt(calc.shortfall)} short of covering your ${fmt(calc.billAmount)} bill due in ${calc.billDaysLeft} day${calc.billDaysLeft === 1 ? '' : 's'} — nothing is safe to spend right now.`;
     } else {
       safeSpendBox.style.display = 'block';
       safeSpendBox.classList.remove('expired');
       document.getElementById('safe-spend-amt').textContent = fmt(calc.perDayPence) + '/day';
-      document.getElementById('safe-spend-lbl').textContent =
-        `safe to spend for the next ${calc.daysLeft} day${calc.daysLeft === 1 ? '' : 's'}, until your next payment lands`;
+      if(calc.reservedForBill){
+        document.getElementById('safe-spend-lbl').textContent =
+          `safe to spend for the next ${calc.daysLeft} day${calc.daysLeft === 1 ? '' : 's'}, after setting aside ${fmt(calc.reservedForBill)} for your upcoming bill`;
+      } else {
+        document.getElementById('safe-spend-lbl').textContent =
+          `safe to spend for the next ${calc.daysLeft} day${calc.daysLeft === 1 ? '' : 's'}, until your next payment lands`;
+      }
     }
   } else {
     safeSpendBox.style.display = 'none';
@@ -914,6 +972,7 @@ async function render(){
       document.getElementById('tap-btn').classList.remove('amber');
       document.getElementById('tap-btn').textContent = 'Tap to Pay';
       document.getElementById('tap-processing').classList.remove('show');
+      document.getElementById('reflection-note').classList.remove('show');
     } else if(pp && pp.status === 'confirm_discretionary'){
       overlay.classList.add('show', 'confirm-step');
       document.getElementById('tap-desc').textContent = 'This includes a discretionary purchase — confirm to proceed';
@@ -922,11 +981,26 @@ async function render(){
       document.getElementById('tap-btn').classList.add('amber');
       document.getElementById('tap-btn').textContent = 'Confirm Discretionary Spend';
       document.getElementById('tap-processing').classList.remove('show');
+
+      const reflectionEl = document.getElementById('reflection-note');
+      const remainingBeforeThis = state.discretionary_balance_pence;
+      if(remainingBeforeThis > 0){
+        const pct = Math.round((pp.discTotal / remainingBeforeThis) * 100);
+        if(pct >= REFLECTION_THRESHOLD_PCT){
+          reflectionEl.textContent = `Heads up — this is about ${pct}% of what's left in your fun-money pot right now. Still want to go ahead?`;
+          reflectionEl.classList.add('show');
+        } else {
+          reflectionEl.classList.remove('show');
+        }
+      } else {
+        reflectionEl.classList.remove('show');
+      }
     } else if(pp && pp.status === 'card_presented'){
       // keep processing state visible until till clears it
     } else {
       overlay.classList.remove('show');
       document.getElementById('tap-processing').classList.remove('show');
+      document.getElementById('reflection-note').classList.remove('show');
     }
   }
 

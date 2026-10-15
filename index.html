@@ -33,6 +33,7 @@
     margin:0 0 4px;
   }
   .sub{color:var(--sub); font-size:13px; margin-bottom:24px; text-align:center; max-width:440px;}
+  .feedback-line a{color:var(--teal);}
   .mode-toggle{display:flex; gap:8px; margin-bottom:28px; background:var(--panel); padding:5px; border-radius:10px; border:1px solid var(--line);}
   .mode-btn{
     background:transparent; border:none; color:var(--sub); font-family:'Inter',sans-serif;
@@ -230,6 +231,7 @@
 <h1>BAV — Live Teller Demo</h1>
 <p class="sub">Scan items on the till, request payment, then tap the card on your phone to approve it — synced over the internet in real time.</p>
 <p class="sub" id="conn-status" style="font-weight:600; margin-top:-14px;"></p>
+<p class="sub feedback-line" style="margin-top:-12px;">Early demo. Tried it? <a href="https://bav-sandbox.vercel.app/about/#feedback">Give feedback</a> or <a href="https://bav-sandbox.vercel.app/about/#tester">join the tester list</a>.</p>
 
 <div id="setup-banner" style="display:none; max-width:420px; background:rgba(217,105,95,.08); border:1px solid rgba(217,105,95,.4); border-radius:10px; padding:14px 16px; margin-bottom:20px; font-size:12.5px; color:var(--text); line-height:1.6;">
   <b style="color:var(--red);">Not set up yet.</b> Open this file in a text editor, find <code>FIREBASE_URL</code> near the top of the script, and replace the placeholder with your own Firebase Realtime Database URL.
